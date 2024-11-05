@@ -21,16 +21,13 @@ def to_binary(number, nbits = None):
 # Multi-Control-Z function
 
 from qiskit import QuantumCircuit
+import matplotlib.pyplot as plt
 
 def multi_control_z(n_qubits):
 
     qc = QuantumCircuit(n_qubits)
     qc.h(n_qubits - 1)
-    qc.mcx(list(range(n_qubits - 1)), n_qubits - 1)
+    qc.mcx(list(range(n_qubits - 1)), n_qubits - 1) # 1st parameter: list of controlling qubits | 2nd parameter: target qubit
     qc.h(n_qubits - 1)
     
     return qc
-
-
-circuit = multi_control_z(6)
-circuit.draw('mpl', style='clifford')
