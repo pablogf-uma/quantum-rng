@@ -26,11 +26,11 @@ def multi_control_z(n_qubits):
 
     qc = QuantumCircuit(n_qubits)
     qc.h(n_qubits - 1)
-    qc.mcx(n_qubits - 1)
+    qc.mcx(list(range(n_qubits - 1)), n_qubits - 1)
     qc.h(n_qubits - 1)
     
     return qc
 
 
 circuit = multi_control_z(6)
-circuit.draw()
+circuit.draw('mpl', style='clifford')
