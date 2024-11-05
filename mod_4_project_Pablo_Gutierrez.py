@@ -34,8 +34,3 @@ def multi_control_z(n_qubits):
 
 circuit = multi_control_z(6)
 circuit.draw()
-
-
-#hello
-
-#ello
