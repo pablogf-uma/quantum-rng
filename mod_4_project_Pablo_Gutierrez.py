@@ -59,12 +59,11 @@ def pi_phase_adder():
 # Less than oracle function
 def less_than_oracle(number, n_qubits):
 
-    # Convert "number" to bianry depending on data type input
+    # Convert "number" to binary depending on data type input
     if number == int:
         number_binary = to_binary(number)
 
     elif set(number).issubset({'0', '1'}) == True:
-        decimal_number = int(number, 2)
         number_binary = bin(number)[2:0]
 
     # Make sure "number" can be represented with the number of qubits input
@@ -103,4 +102,29 @@ def less_than_oracle(number, n_qubits):
         else:
             pass
     
-    return qc   
+    return qc
+
+
+def greater_than_oracle(number, n_qubits):
+
+    # Convert "number" to binary depending on data type input
+    if number == int:
+        number_binary = to_binary(number)
+
+    elif set(number).issubset({'0', '1'}) == True:
+        number_binary = bin(number)[2:0]
+
+    # Make sure "number" can be represented with the number of qubits input
+    if n_qubits >= len(number_binary):
+        qc = QuantumCircuit(n_qubits)
+    else:
+        return "Number input is not consistent with the number of qubits input."
+
+    less_than = less_than_oracle(number=number, nqubits=n_qubits)
+    gp = pi_phase_adder()
+    qc.append(less_than.to_gate(),  range(0,n_qubits, 1))
+    qc.append(gp.to_gate(), range(0, -1, -1)) # This range is only outputting 0, so the pi phase is only added to the LSQubit
+
+    return qc
+
+
