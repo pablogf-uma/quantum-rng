@@ -75,7 +75,7 @@ def less_than_oracle(number, n_qubits):
 
     # Circuit to create "less than" oracle
     qc.h(range(n_qubits)) # Create superposition of all possible states
-    
+
     # If the most significant qubit is 1, apply Z (not controlled)
     if number_binary[0] == '1':
         qc.x(n_qubits - 1)
@@ -83,16 +83,19 @@ def less_than_oracle(number, n_qubits):
         qc.x(n_qubits - 1)
     else:
         qc.x(n_qubits - 1)
-    # Add a multicontrol z and phase of pi to all qubits that have 1 as input
+
+    # Add a multicontrol z to all qubits that have 1 as input
     for index, i in enumerate(number_binary):
+        
         if i == '0' and index != 0:
-            qc.h(index)
+            qc.x(n_qubits - index - 1)
         elif i == '1' and index != 0:
             qc.x(n_qubits - index - 1)
             multi_z = multi_control_z(index + 1)
             qc.append(multi_z.to_gate(), range(n_qubits - 1, n_qubits - index - 2, -1))
             qc.x(n_qubits - index - 1)
-    
+        qc.barrier()  # Add barrier to separate all qubits
+
     # Add CNOTS to qubits with 0 as input
     for index, i in enumerate(number_binary):
         if i == '0':
@@ -100,4 +103,4 @@ def less_than_oracle(number, n_qubits):
         else:
             pass
     
-    return qc
+    return qc   
