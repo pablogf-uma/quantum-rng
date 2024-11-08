@@ -1,5 +1,6 @@
-from qiskit import QuantumCircuit
-import matplotlib.pyplot as plt
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
+from qiskit_aer import AerSimulator
+from IPython.display import display
 
 # Binary function:
 def to_binary(number, nbits = None):
@@ -60,11 +61,12 @@ def pi_phase_adder():
 def less_than_oracle(number, n_qubits):
 
     # Convert "number" to binary depending on data type input
-    if number == int:
+    if isinstance(number, int):
         number_binary = to_binary(number)
-
-    elif set(number).issubset({'0', '1'}) == True:
-        number_binary = bin(number)[2:0]
+    elif set(str(number)).issubset({'0', '1'}) == True:
+        number_binary = str(number)
+    else:
+        return "Invalid number input."
 
     # Make sure "number" can be represented with the number of qubits input
     if n_qubits >= len(number_binary):
@@ -93,7 +95,7 @@ def less_than_oracle(number, n_qubits):
             multi_z = multi_control_z(index + 1)
             qc.append(multi_z.to_gate(), range(n_qubits - 1, n_qubits - index - 2, -1))
             qc.x(n_qubits - index - 1)
-        qc.barrier()  # Add barrier to separate all qubits
+        #qc.barrier()  # Add barrier to separate all qubits
 
     # Add CNOTS to qubits with 0 as input
     for index, i in enumerate(number_binary):
@@ -105,26 +107,67 @@ def less_than_oracle(number, n_qubits):
     return qc
 
 
+# Greater than oracle function
 def greater_than_oracle(number, n_qubits):
 
-    # Convert "number" to binary depending on data type input
-    if number == int:
-        number_binary = to_binary(number)
+    qc = QuantumCircuit(n_qubits)
 
-    elif set(number).issubset({'0', '1'}) == True:
-        number_binary = bin(number)[2:0]
+    # Create less than and global pi phase adder circuits
+    less_than = less_than_oracle(number=number, n_qubits=n_qubits)
+    pi_phase = pi_phase_adder()
 
-    # Make sure "number" can be represented with the number of qubits input
-    if n_qubits >= len(number_binary):
-        qc = QuantumCircuit(n_qubits)
-    else:
-        return "Number input is not consistent with the number of qubits input."
-
-    less_than = less_than_oracle(number=number, nqubits=n_qubits)
-    gp = pi_phase_adder()
+    # Append them to the general circuit
     qc.append(less_than.to_gate(),  range(0,n_qubits, 1))
-    qc.append(gp.to_gate(), range(0, -1, -1)) # This range is only outputting 0, so the pi phase is only added to the LSQubit
+    qc.append(pi_phase.to_gate(), range(0, -1, -1)) # This range is only outputting 0, so the pi phase is only added to the LSQubit
 
     return qc
 
 
+# Range fuction
+def range_of_oracle(lower_number, higher_number, n_qubits):
+
+    qc = QuantumCircuit(n_qubits)
+
+    # Create greater and less than oracles based on the numbers input
+    less_than = less_than_oracle(higher_number, n_qubits)
+    greater_than = greater_than_oracle(lower_number, n_qubits)
+    pi_phase = pi_phase_adder()
+
+    # Append them to the general circuit
+    qc.append(less_than.to_gate(), range(0, n_qubits, 1))
+    qc.append(greater_than.to_gate(), range(0, n_qubits, 1))
+    qc.append(pi_phase.to_gate(), range(0, -1, -1))
+
+    return qc
+
+
+# Range program: Creating a circuit where the range oracle is implemented and simulated
+def range_of_program(lower_number, higher_number, n_qubits):
+
+    cr = ClassicalRegister(n_qubits)
+    qr = QuantumRegister(n_qubits)
+    qc = QuantumCircuit(qr, cr)
+
+    range_of = range_of_oracle(lower_number, higher_number, n_qubits)
+    diffuser = diffuser_circuit(n_qubits)
+
+    qc.append(range_of.to_gate(), range(0, n_qubits, 1))
+    qc.append(diffuser.to_gate(), range(0, n_qubits, 1))
+
+    return qc
+
+sim = AerSimulator(method='statevector')
+
+q_program = range_of_program(3, 8, 4)
+
+transpiled_program = transpile(q_program, backend = sim)
+shots = 200
+sim_run = sim.run(transpiled_program, shots)
+result = sim_run.result()
+counts = result.get_counts(q_program)
+
+# Print the circuit
+display(q_program.draw('mpl'))
+
+# This outputs how many times the numbers within the range were outputted
+print(counts)
