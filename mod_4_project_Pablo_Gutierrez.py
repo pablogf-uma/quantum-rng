@@ -1,6 +1,5 @@
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
 from qiskit_aer import AerSimulator
-from IPython.display import display
 
 # Binary function:
 def to_binary(number, nbits = None):
@@ -52,7 +51,7 @@ def pi_phase_adder():
     qc.z(0)
     qc.x(0)
     qc.z(0)
-    qc.h(0) 
+    qc.x(0) 
 
     return qc
 
@@ -60,22 +59,11 @@ def pi_phase_adder():
 # Less than oracle function
 def less_than_oracle(number, n_qubits):
 
-    # Convert "number" to binary depending on data type input
-    if isinstance(number, int):
-        number_binary = to_binary(number)
-    elif set(str(number)).issubset({'0', '1'}) == True:
-        number_binary = str(number)
-    else:
-        return "Invalid number input."
-
-    # Make sure "number" can be represented with the number of qubits input
-    if n_qubits >= len(number_binary):
-        qc = QuantumCircuit(n_qubits)
-    else:
-        return "Number input is not consistent with the number of qubits input."
+    qc = QuantumCircuit(n_qubits)
+    number_binary = to_binary(number, n_qubits)
+    number_binary = number_binary.rstrip('0')
 
     # Circuit to create "less than" oracle
-    qc.h(range(n_qubits)) # Create superposition of all possible states
 
     # If the most significant qubit is 1, apply Z (not controlled)
     if number_binary[0] == '1':
@@ -112,6 +100,9 @@ def greater_than_oracle(number, n_qubits):
 
     qc = QuantumCircuit(n_qubits)
 
+    if number < (2**n_qubits): # if number is not the greater namber that can be represented using nqubits
+        number=number+1
+
     # Create less than and global pi phase adder circuits
     less_than = less_than_oracle(number=number, n_qubits=n_qubits)
     pi_phase = pi_phase_adder()
@@ -134,40 +125,61 @@ def range_of_oracle(lower_number, higher_number, n_qubits):
     pi_phase = pi_phase_adder()
 
     # Append them to the general circuit
-    qc.append(less_than.to_gate(), range(0, n_qubits, 1))
     qc.append(greater_than.to_gate(), range(0, n_qubits, 1))
+    qc.append(less_than.to_gate(), range(0, n_qubits, 1))
     qc.append(pi_phase.to_gate(), range(0, -1, -1))
 
     return qc
 
 
-# Range program: Creating a circuit where the range oracle is implemented and simulated
+# Range program: Creating a circuit where the range oracle is implemented
 def range_of_program(lower_number, higher_number, n_qubits):
 
     cr = ClassicalRegister(n_qubits)
     qr = QuantumRegister(n_qubits)
     qc = QuantumCircuit(qr, cr)
 
-    range_of = range_of_oracle(lower_number, higher_number, n_qubits)
+    qc.h(qr)
+    range_of = range_of_oracle(lower_number=lower_number, higher_number=higher_number, n_qubits=n_qubits)
     diffuser = diffuser_circuit(n_qubits)
 
     qc.append(range_of.to_gate(), range(0, n_qubits, 1))
     qc.append(diffuser.to_gate(), range(0, n_qubits, 1))
+    qc.measure(qr,cr)
 
     return qc
 
+
+# Simulate and get results for a specific range
 sim = AerSimulator(method='statevector')
+lower_number = 2
+higher_number = 6
+number_of_qubits = 4
+print(f"\nRange between {lower_number} ({to_binary(lower_number, number_of_qubits)}) and {higher_number} ({to_binary(higher_number, number_of_qubits)})\n")
 
-q_program = range_of_program(3, 8, 4)
 
+# Display numbers within the range by simulating the circuit with 200 shots
+q_program = range_of_program(lower_number, higher_number, number_of_qubits) # "Create a circuit with amplitudes only in numbers between 2 and 6"
 transpiled_program = transpile(q_program, backend = sim)
-shots = 200
-sim_run = sim.run(transpiled_program, shots)
-result = sim_run.result()
-counts = result.get_counts(q_program)
+n_shots = 200
+sim_run = sim.run(transpiled_program, shots = n_shots)
+sim_result=sim_run.result()
+counts_result = sim_result.get_counts()
+# Display histogram as ASCII in terminal for the range of numbers
+print("\nHistogram of random number results for 200 shots:")
+max_count = max(counts_result.values())
+for state, count in sorted(counts_result.items(), key=lambda x: int(x[0], 2)):
+    bar = '█' * int((count / max_count) * 50)
+    print(f"{state}: {bar} ({count})")
+print("\n")
 
-# Print the circuit
-display(q_program.draw('mpl'))
+# Get a random number from the range
+q_program = range_of_program(2,6,4)
+transpiled_program = transpile(q_program, backend = sim)
+n_shots = 1
+sim_run = sim.run(transpiled_program, shots = n_shots)
+sim_result=sim_run.result()
+counts_result = sim_result.get_counts()
+qrng = int(list(counts_result.keys())[0], 2)
 
-# This outputs how many times the numbers within the range were outputted
-print(counts)
+print(f"Quantum random number generated: {qrng}\n")
